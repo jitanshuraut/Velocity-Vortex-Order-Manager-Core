@@ -1,13 +1,14 @@
 #include "order_manager.hpp"
-#include <optional> 
-#include <json/json.h> 
+#include <optional>
+#include <json/json.h>
 
-void OrderManager::createOrder(const std::string& side, const std::string& type, const std::string& timeInForce,
-                               const std::string& symbol, const std::string& qty, 
-                               const std::optional<std::string>& limitPrice, 
-                               const std::optional<std::string>& stopPrice, 
-                               const std::optional<std::string>& trailPrice, 
-                               const std::optional<std::string>& trailPercent) {
+void OrderManager::createOrder(const std::string &side, const std::string &type, const std::string &timeInForce,
+                               const std::string &symbol, const std::string &qty,
+                               const std::optional<std::string> &limitPrice,
+                               const std::optional<std::string> &stopPrice,
+                               const std::optional<std::string> &trailPrice,
+                               const std::optional<std::string> &trailPercent)
+{
     std::string url = "https://paper-api.alpaca.markets/v2/orders";
 
     Json::Value jsonPayload;
@@ -17,97 +18,173 @@ void OrderManager::createOrder(const std::string& side, const std::string& type,
     jsonPayload["symbol"] = symbol;
     jsonPayload["qty"] = qty;
 
-   
-
-    if (limitPrice) jsonPayload["limit_price"] = *limitPrice;
-    if (stopPrice) jsonPayload["stop_price"] = *stopPrice;
-    if (trailPrice) jsonPayload["trail_price"] = *trailPrice;
-    if (trailPercent) jsonPayload["trail_percent"] = *trailPercent;
-
+    if (limitPrice)
+        jsonPayload["limit_price"] = *limitPrice;
+    if (stopPrice)
+        jsonPayload["stop_price"] = *stopPrice;
+    if (trailPrice)
+        jsonPayload["trail_price"] = *trailPrice;
+    if (trailPercent)
+        jsonPayload["trail_percent"] = *trailPercent;
 
     Json::StreamWriterBuilder writer;
-    std::string jsonString = Json::writeString(writer, jsonPayload); 
+    std::string jsonString = Json::writeString(writer, jsonPayload);
 
-    auto [ret, response] = apiClient.post(url, jsonString); 
-    if (ret == CURLE_OK) {
-        try {
+    auto [ret, response] = apiClient.post(url, jsonString);
+    if (ret == CURLE_OK)
+    {
+        try
+        {
             Order order = parseOrderFromJson(response);
-            GlobalQueue::getInstance().enqueue(order); 
-        } catch (const std::exception& e) {
+            GlobalQueue::getInstance().enqueue(order);
+        }
+        catch (const std::exception &e)
+        {
             std::cerr << "Error processing response: " << e.what() << std::endl;
         }
-    } else {
+    }
+    else
+    {
         std::cerr << "Error creating order: " << curl_easy_strerror(ret) << std::endl;
     }
 }
 
-void OrderManager::processOrderQueue() {
-   
+void OrderManager::processOrderQueue()
+{
 }
 
-void OrderManager::getAllOrders() {
+void OrderManager::getAllOrders()
+{
     std::string url = "https://paper-api.alpaca.markets/v2/orders?status=open";
-    auto [ret, response] = apiClient.get(url); 
+    auto [ret, response] = apiClient.get(url);
 
-    if (ret == CURLE_OK) {
+    if (ret == CURLE_OK)
+    {
         Json::CharReaderBuilder reader;
         Json::Value jsonResponse;
         std::istringstream s(response);
         std::string errs;
 
-        if (Json::parseFromStream(reader, s, &jsonResponse, &errs)) {
-            for (const auto& item : jsonResponse) {
-                Order order = parseOrderFromJson(item.toStyledString()); 
-               order.display();
+        if (Json::parseFromStream(reader, s, &jsonResponse, &errs))
+        {
+            for (const auto &item : jsonResponse)
+            {
+                Order order = parseOrderFromJson(item.toStyledString());
+                order.display();
             }
-        } else {
+        }
+        else
+        {
             std::cerr << "Error parsing JSON response: " << errs << std::endl;
         }
-    } else {
+    }
+    else
+    {
         std::cerr << "Error getting all orders: " << curl_easy_strerror(ret) << std::endl;
     }
 }
 
-void OrderManager::deleteAllOrders() {
+void OrderManager::deleteAllOrders()
+{
     std::string url = "https://paper-api.alpaca.markets/v2/orders";
-    auto [ret, response] = apiClient.del(url); 
-    if (ret != CURLE_OK) {
+    auto [ret, response] = apiClient.del(url);
+    if (ret != CURLE_OK)
+    {
         std::cerr << "Error deleting all orders: " << curl_easy_strerror(ret) << std::endl;
     }
 }
 
-void OrderManager::getOrderById(const std::string& orderId) {
+void OrderManager::getOrderById(const std::string &orderId)
+{
     std::string url = "https://paper-api.alpaca.markets/v2/orders/" + orderId;
-    auto [ret, response] = apiClient.get(url); 
+    auto [ret, response] = apiClient.get(url);
 
-    if (ret == CURLE_OK) {
-        try {
-        
+    if (ret == CURLE_OK)
+    {
+        try
+        {
+
             Order order = parseOrderFromJson(response);
             order.display();
-        } catch (const std::exception& e) {
+        }
+        catch (const std::exception &e)
+        {
             std::cerr << "Error processing response: " << e.what() << std::endl;
         }
-    } else {
+    }
+    else
+    {
         std::cerr << "Error getting order by ID: " << curl_easy_strerror(ret) << std::endl;
     }
 }
 
-void OrderManager::deleteOrderById(const std::string& orderId) {
+void OrderManager::deleteOrderById(const std::string &orderId)
+{
     std::string url = "https://paper-api.alpaca.markets/v2/orders/" + orderId;
-    auto [ret, response] = apiClient.del(url); 
-    if (ret != CURLE_OK) {
+    auto [ret, response] = apiClient.del(url);
+    if (ret != CURLE_OK)
+    {
         std::cerr << "Error deleting order by ID: " << curl_easy_strerror(ret) << std::endl;
     }
 }
 
-Order OrderManager::parseOrderFromJson(const std::string& response) {
+std::string OrderManager::getAllOpenPositions()
+{
+    std::string url = "https://api.alpaca.markets/v2/positions";
+    auto [curlCode, jsonResponse] = apiClient.get(url);
+    if (curlCode != CURLE_OK)
+    {
+        return "Failed to fetch open positions. CURLcode: " + std::to_string(curlCode);
+    }
+    return jsonResponse;
+}
+
+std::string OrderManager::closeAllPositions()
+{
+    std::string url = "https://api.alpaca.markets/v2/positions";
+    auto [curlCode, jsonResponse] = apiClient.del(url);
+
+    if (curlCode != CURLE_OK)
+    {
+        return "Failed to close all positions. CURLcode: " + std::to_string(curlCode);
+    }
+    return jsonResponse;
+}
+
+std::string OrderManager::getOpenPosition(const std::string &symbol)
+{
+    std::string url = "https://api.alpaca.markets/v2/positions/" + symbol;
+    auto [curlCode, jsonResponse] = apiClient.get(url);
+
+    if (curlCode != CURLE_OK)
+    {
+        return "Failed to fetch position for " + symbol + ". CURLcode: " + std::to_string(curlCode);
+    }
+    return jsonResponse;
+}
+
+std::string OrderManager::closePosition(const std::string &symbol)
+{
+    std::string url = "https://api.alpaca.markets/v2/positions/" + symbol;
+    auto [curlCode, jsonResponse] = apiClient.del(url);
+
+    if (curlCode != CURLE_OK)
+    {
+        return "Failed to close position for " + symbol + ". CURLcode: " + std::to_string(curlCode);
+    }
+
+    return jsonResponse;
+}
+
+Order OrderManager::parseOrderFromJson(const std::string &response)
+{
     Json::CharReaderBuilder reader;
     Json::Value jsonResponse;
     std::istringstream s(response);
     std::string errs;
 
-    if (!Json::parseFromStream(reader, s, &jsonResponse, &errs)) {
+    if (!Json::parseFromStream(reader, s, &jsonResponse, &errs))
+    {
         throw std::runtime_error("Failed to parse JSON response: " + errs);
     }
 
@@ -138,10 +215,9 @@ Order OrderManager::parseOrderFromJson(const std::string& response) {
     std::string trailPercent = jsonResponse["trail_percent"].asString();
     bool extendedHours = jsonResponse["extended_hours"].asBool();
 
-    
-    return Order(orderId, clientOrderId, createdAt, updatedAt, submittedAt, filledAt, 
-                 expiredAt, canceledAt, failedAt, replacedAt, assetId, symbol, 
-                 assetClass, qty, filledQty, filledAvgPrice, orderClass, 
-                 orderType, side, positionIntent, timeInForce, 
+    return Order(orderId, clientOrderId, createdAt, updatedAt, submittedAt, filledAt,
+                 expiredAt, canceledAt, failedAt, replacedAt, assetId, symbol,
+                 assetClass, qty, filledQty, filledAvgPrice, orderClass,
+                 orderType, side, positionIntent, timeInForce,
                  limitPrice, stopPrice, trailPrice, trailPercent, extendedHours);
 }
